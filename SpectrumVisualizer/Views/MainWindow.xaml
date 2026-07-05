@@ -28,9 +28,9 @@
 
         </ToolBar>
 
-        <controls:SpectrumChart x:Name="SpectrumChartControl" Grid.Row="1" Margin="4" />
-        
-        <controls:WaterfallView x:Name="WaterfallControl" Grid.Row="2" Margin="4" />
+        <controls:SpectrumChart Powers="{Binding CurrentPowers}" Frequency="{Binding CurrentFrequencies}" Grid.Row="1" Margin="4" />
+
+        <controls:WaterfallView HistoryData="{Binding WaterfallHistory}" Version="{Binding WaterfallVersion}" Grid.Row="2" Margin="4" />
         <!-- Waterfall placeholder --><!--
         <Border Grid.Row="2"
                 Background="#1E1E1E"
