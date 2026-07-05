@@ -12,6 +12,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainViewModel();
         LoadFakeData();
+        GenerateFakeDataForWaterfall();
     }
 
     private void LoadFakeData()
@@ -41,5 +42,31 @@ public partial class MainWindow : Window
         SpectrumChartControl.Frequency = frequencies;
         SpectrumChartControl.Powers = powers;
         SpectrumChartControl.LineColor = Brushes.Yellow;
+    }
+
+    private void GenerateFakeDataForWaterfall()
+    {
+        const int pointCount = 1024;
+        const int frameCount = 200;
+
+        var fakeHistory = GenerateFakeHistory(pointCount, frameCount);
+        WaterfallControl.HistoryData = fakeHistory;
+    }
+
+    private double[][] GenerateFakeHistory(int pointCount, int frameCount)
+    {
+        var history = new double[frameCount][];
+        var random = new Random(42);
+        for (int frame = 0; frame < frameCount; frame++)
+        {
+            history[frame] = new double[pointCount];
+            for (int i = 0; i < pointCount; i++)
+            {
+                double wave = Math.Sin(i * 0.05 + frame * 0.1) * 10 + Math.Sin(i * 0.2 + frame * 0.2) * 5;
+                double noise = (random.NextDouble() - 0.5) * 8;
+                history[frame][i] = -80.0 + wave + noise;
+            }
+        }
+        return history;
     }
 }
