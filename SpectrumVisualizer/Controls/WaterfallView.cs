@@ -8,7 +8,7 @@ namespace SpectrumVisualizer.Controls
 {
     public class WaterfallView : SpectrumControlBase
     {
-        private WriteableBitmap _bitmap;
+        private WriteableBitmap? _bitmap;
         private const int BitmapWidth = 1024;
         private const int BitmapHeight = 200;
 
