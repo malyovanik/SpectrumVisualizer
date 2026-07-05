@@ -1,30 +1,64 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SpectrumVisualizer.Models;
+using SpectrumVisualizer.Services;
 
 namespace SpectrumVisualizer.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private readonly SpectrumEngine _spectrumEngine;
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanStart))]
-    [NotifyPropertyChangedFor(nameof(CanStop))]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
-    [NotifyCanExecuteChangedFor(nameof(StopCommand))]
-    private bool isRunning;
+    private double[]? currentPowers;
 
-    public bool CanStart => !IsRunning;
+    [ObservableProperty]
+    private double[]? currentFrequencies;
 
-    public bool CanStop => IsRunning;
+    [ObservableProperty]
+    private WaterfallHistory waterfallHistory = new(capacity: 200);
 
-    [RelayCommand(CanExecute = nameof(CanStart))]
-    private void Start()
+    [ObservableProperty]
+    private bool canStart = true;
+
+    [ObservableProperty]
+    private bool canStop;
+
+    public MainViewModel()
     {
-        IsRunning = true;
+        var generator = new RandomSpectrumDataGenerator();
+        _spectrumEngine = new SpectrumEngine(generator);
+        _spectrumEngine.FrameGenerated += OnFrameGenerated;
     }
 
-    [RelayCommand(CanExecute = nameof(CanStop))]
+    [ObservableProperty]
+    private int waterfallVersion;
+
+    private void OnFrameGenerated(SpectrumFrame frame)
+    {
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            CurrentPowers = frame.Powers;
+            CurrentFrequencies = frame.Frequencies;
+
+            WaterfallHistory.AddFrame(frame);
+            WaterfallVersion++;
+        });
+    }
+
+    [RelayCommand]
+    private void Start()
+    {
+        _spectrumEngine.Start(intervalMilliseconds: 50);
+        CanStart = false;
+        CanStop = true;
+    }
+
+    [RelayCommand]
     private void Stop()
     {
-        IsRunning = false;
+        _spectrumEngine.Stop();
+        CanStart = true;
+        CanStop = false;
     }
 }

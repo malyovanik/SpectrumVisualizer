@@ -29,6 +29,19 @@ namespace SpectrumVisualizer.Controls
             set { SetValue(HistoryDataProperty, value); }
         }
 
+        public static readonly DependencyProperty VersionProperty =
+        DependencyProperty.Register(
+        nameof(Version),
+        typeof(int),
+        typeof(WaterfallView),
+        new FrameworkPropertyMetadata(0, OnDataChanged));
+
+        public int Version
+        {
+            get { return (int)GetValue(VersionProperty); }
+            set { SetValue(VersionProperty, value); }
+        }
+
         protected override void OnRender(DrawingContext drawingContext)
         {
             _bitmap ??= new WriteableBitmap(BitmapWidth, BitmapHeight, 96, 96, PixelFormats.Bgr32, null);
