@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SpectrumVisualizer.Extensions;
+using SpectrumVisualizer.Models;
 
 namespace SpectrumVisualizer.Controls
 {
@@ -18,13 +19,13 @@ namespace SpectrumVisualizer.Controls
         public static readonly DependencyProperty HistoryDataProperty =
         DependencyProperty.Register(
         nameof(HistoryData),
-        typeof(double[][]),
+        typeof(WaterfallHistory),
         typeof(WaterfallView),
         new FrameworkPropertyMetadata(null, OnDataChanged));
 
-        public double[][] HistoryData
+        public WaterfallHistory HistoryData
         {
-            get { return (double[][] )GetValue(HistoryDataProperty); }
+            get { return (WaterfallHistory )GetValue(HistoryDataProperty); }
             set { SetValue(HistoryDataProperty, value); }
         }
 
@@ -32,7 +33,7 @@ namespace SpectrumVisualizer.Controls
         {
             _bitmap ??= new WriteableBitmap(BitmapWidth, BitmapHeight, 96, 96, PixelFormats.Bgr32, null);
 
-            if (HistoryData == null || HistoryData.Length == 0)
+            if (HistoryData == null || HistoryData.CountWritedFrames == 0)
             {
                 drawingContext.DrawImage(_bitmap, new Rect(0, 0, ActualWidth, ActualHeight));
                 return;
@@ -40,11 +41,11 @@ namespace SpectrumVisualizer.Controls
 
             var rowPixels = new byte[BitmapWidth * 4];
 
-            int rowCount = Math.Min(HistoryData.Length, BitmapHeight);
+            int rowCount = Math.Min(HistoryData.CountWritedFrames, BitmapHeight);
 
             for (int row = 0; row < rowCount; row++)
             {
-                double[] frame = HistoryData[row];
+                double[] frame = HistoryData.GetFrame(row)?.Powers ?? [];
 
                 for (int x = 0; x < BitmapWidth; x++)
                 {

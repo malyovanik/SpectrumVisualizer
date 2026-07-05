@@ -62,19 +62,10 @@ namespace SpectrumVisualizer.Controls
             set { SetValue(MaxPowerProperty, value); }
         }
 
-        protected static void OnDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            ((SpectrumControlBase)d).InvalidateVisual();
-        }
+        protected static void OnDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((SpectrumControlBase)d).InvalidateVisual();
 
-        protected double FrequencyToX(double frequency, double width)
-        {
-            return frequency.MapRange(MinFrequency, MaxFrequency, 0, width);
-        }
+        protected double FrequencyToX(double frequency, double width) => frequency.MapRange(MinFrequency, MaxFrequency, 0, width);
 
-        protected double PowerToY(double power, double height)
-        {
-            return power.MapRange(MinPower, MaxPower, height, 0);
-        }
+        protected double PowerToY(double power, double height) => power.MapRange(MinPower, MaxPower, height, 0);
     }
 }
