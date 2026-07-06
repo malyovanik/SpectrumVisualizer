@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SpectrumVisualizer.Extensions;
@@ -10,11 +9,13 @@ namespace SpectrumVisualizer.Controls
     public class WaterfallView : SpectrumControlBase
     {
         private WriteableBitmap? _bitmap;
-        private const int BitmapWidth = 1024;
-        private const int BitmapHeight = 200;
+        private SpectrumFrame? _lastRenderedFrame;
 
         private const double LeftMargin = 55;
         private const double RightMargin = 25;
+        private static readonly Pen GridPen = new(Brushes.Black, 1);
+        private static readonly double[] FreqLevels = { 90, 95, 100, 105, 110 };
+
 
         public static readonly DependencyProperty HistoryDataProperty =
         DependencyProperty.Register(
@@ -25,7 +26,7 @@ namespace SpectrumVisualizer.Controls
 
         public WaterfallHistory HistoryData
         {
-            get { return (WaterfallHistory )GetValue(HistoryDataProperty); }
+            get { return (WaterfallHistory)GetValue(HistoryDataProperty); }
             set { SetValue(HistoryDataProperty, value); }
         }
 
@@ -44,55 +45,90 @@ namespace SpectrumVisualizer.Controls
 
         protected override void OnRender(DrawingContext drawingContext)
         {
-            _bitmap ??= new WriteableBitmap(BitmapWidth, BitmapHeight, 96, 96, PixelFormats.Bgr32, null);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            double plotWidth = ActualWidth - LeftMargin - RightMargin;
+            const int MaxBitmapWidth = 1024;
+            const int MaxBitmapHeight = 200;
+
+            if (_bitmap == null)
+            {
+                _bitmap = new WriteableBitmap(MaxBitmapWidth, MaxBitmapHeight, 96, 96, PixelFormats.Bgr32, null);
+            }
 
             if (HistoryData == null || HistoryData.CountWritedFrames == 0)
             {
-                drawingContext.DrawImage(_bitmap, new Rect(0, 0, ActualWidth, ActualHeight));
+                drawingContext.DrawImage(_bitmap, new Rect(LeftMargin, 0, plotWidth, ActualHeight));
                 return;
             }
 
-            var rowPixels = new byte[BitmapWidth * 4];
+            var newestFrame = HistoryData.GetFrame(0);
 
-            int rowCount = Math.Min(HistoryData.CountWritedFrames, BitmapHeight);
-
-            for (int row = 0; row < rowCount; row++)
+            if (!ReferenceEquals(newestFrame, _lastRenderedFrame))// better to compare reference, instead of value
             {
-                double[] frame = HistoryData.GetFrame(row)?.Powers ?? [];
-
-                for (int x = 0; x < BitmapWidth; x++)
-                {
-                    int sourceIndex = (int)((double)x / BitmapWidth * frame.Length);
-                    sourceIndex = Math.Min(sourceIndex, frame.Length - 1);
-
-                    double power = frame[sourceIndex];
-                    Color color = TransformPowerToColor(power, MinPower, MaxPower);
-
-                    int offset = x * 4;
-                    rowPixels[offset + 0] = color.B;
-                    rowPixels[offset + 1] = color.G;
-                    rowPixels[offset + 2] = color.R;
-                    rowPixels[offset + 3] = 0;
-                }
-
-                _bitmap.WritePixels(
-                    new Int32Rect(0, row, BitmapWidth, 1),
-                    rowPixels,
-                    BitmapWidth * 4,
-                    0);
+                ShiftBitmapDown();
+                DrawNewTopRow(newestFrame!);
+                _lastRenderedFrame = newestFrame;
             }
 
-            double plotWidth = ActualWidth - LeftMargin - RightMargin;
             drawingContext.DrawImage(_bitmap, new Rect(LeftMargin, 0, plotWidth, ActualHeight));
 
-            var gridPen = new Pen(Brushes.Black, 1);
-            double[] freqLevels = { 90, 95, 100, 105, 110 };
-
-            foreach (var freq in freqLevels)
+            foreach (var freq in FreqLevels)
             {
                 double x = LeftMargin + FrequencyToX(freq, plotWidth);
-                drawingContext.DrawLine(gridPen, new Point(x, 0), new Point(x, ActualHeight));
+                drawingContext.DrawLine(GridPen, new Point(x, 0), new Point(x, ActualHeight));
             }
+
+            sw.Stop();
+            System.Diagnostics.Debug.WriteLine(sw.ElapsedMilliseconds);
+        }
+
+        private void ShiftBitmapDown()
+        {
+            const int width = 1024;
+            const int height = 200;
+            int stride = width * 4;
+
+            var buffer = new byte[stride * height];
+            _bitmap!.CopyPixels(buffer, stride, 0);
+
+            // shift memory on 1 row below
+            Array.Copy(buffer, 0, buffer, stride, stride * (height - 1));
+
+            _bitmap.WritePixels(new Int32Rect(0, 0, width, height), buffer, stride, 0);
+        }
+
+        private void DrawNewTopRow(SpectrumFrame frame)
+        {
+            const int width = 1024;
+            var rowPixels = new byte[width * 4];
+            int pointCount = frame.Powers.Length;
+
+            for (int x = 0; x < width; x++)
+            {
+                int pointStart = (int)((double)x / width * pointCount);
+                int pointEnd = (int)((double)(x + 1) / width * pointCount);
+                pointEnd = Math.Max(pointEnd, pointStart + 1);
+                pointEnd = Math.Min(pointEnd, pointCount);
+
+                double maxPower = double.NegativeInfinity;
+                for (int p = pointStart; p < pointEnd; p++)
+                {
+                    if (frame.Powers[p] > maxPower)
+                    {
+                        maxPower = frame.Powers[p];
+                    }
+                }
+
+                Color color = TransformPowerToColor(maxPower, MinPower, MaxPower);
+                int offset = x * 4;
+                rowPixels[offset + 0] = color.B;
+                rowPixels[offset + 1] = color.G;
+                rowPixels[offset + 2] = color.R;
+                rowPixels[offset + 3] = 0;
+            }
+
+            _bitmap!.WritePixels(new Int32Rect(0, 0, width, 1), rowPixels, width * 4, 0);
         }
 
         private static readonly GradientStop[] PowerColorStops =

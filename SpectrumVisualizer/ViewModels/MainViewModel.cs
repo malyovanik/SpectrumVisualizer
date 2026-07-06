@@ -5,7 +5,7 @@ using SpectrumVisualizer.Services;
 
 namespace SpectrumVisualizer.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly SpectrumEngine _spectrumEngine;
 
@@ -36,8 +36,14 @@ public partial class MainViewModel : ObservableObject
 
     private void OnFrameGenerated(SpectrumFrame frame)
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            var app = System.Windows.Application.Current;
+            if (app == null)
+            {
+                return;
+            }
+
             CurrentPowers = frame.Powers;
             CurrentFrequencies = frame.Frequencies;
 
@@ -60,5 +66,11 @@ public partial class MainViewModel : ObservableObject
         _spectrumEngine.Stop();
         CanStart = true;
         CanStop = false;
+    }
+
+    public void Dispose()
+    {
+        _spectrumEngine.Stop();
+        _spectrumEngine.FrameGenerated -= OnFrameGenerated;
     }
 }
