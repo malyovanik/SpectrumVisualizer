@@ -7,9 +7,13 @@ namespace SpectrumVisualizer.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly MainViewModel _viewModel;
+
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainViewModel();
+        _viewModel = new MainViewModel();
+        DataContext = _viewModel;
+        Closed += (s, e) => _viewModel.Dispose();
     }
 }

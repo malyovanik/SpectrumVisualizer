@@ -38,6 +38,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            var app = System.Windows.Application.Current;
+            if (app == null)
+            {
+                return;
+            }
+
             CurrentPowers = frame.Powers;
             CurrentFrequencies = frame.Frequencies;
 
