@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SpectrumVisualizer.Extensions;
@@ -25,7 +24,7 @@ namespace SpectrumVisualizer.Controls
 
         public WaterfallHistory HistoryData
         {
-            get { return (WaterfallHistory )GetValue(HistoryDataProperty); }
+            get { return (WaterfallHistory)GetValue(HistoryDataProperty); }
             set { SetValue(HistoryDataProperty, value); }
         }
 
@@ -44,29 +43,50 @@ namespace SpectrumVisualizer.Controls
 
         protected override void OnRender(DrawingContext drawingContext)
         {
-            _bitmap ??= new WriteableBitmap(BitmapWidth, BitmapHeight, 96, 96, PixelFormats.Bgr32, null);
+            double plotWidth = ActualWidth - LeftMargin - RightMargin;
+
+            // use fixed size for bitmap, independent of window size, it helps to avoid scaling and make performance better.
+            const int MaxBitmapWidth = 1024;
+            const int MaxBitmapHeight = 200;
+
+            if (_bitmap == null)
+            {
+                _bitmap = new WriteableBitmap(MaxBitmapWidth, MaxBitmapHeight, 96, 96, PixelFormats.Bgr32, null);
+            }
 
             if (HistoryData == null || HistoryData.CountWritedFrames == 0)
             {
-                drawingContext.DrawImage(_bitmap, new Rect(0, 0, ActualWidth, ActualHeight));
+                drawingContext.DrawImage(_bitmap, new Rect(LeftMargin, 0, plotWidth, ActualHeight));
                 return;
             }
 
-            var rowPixels = new byte[BitmapWidth * 4];
+            var rowPixels = new byte[MaxBitmapWidth * 4];
 
-            int rowCount = Math.Min(HistoryData.CountWritedFrames, BitmapHeight);
+            int rowCount = Math.Min(HistoryData.CountWritedFrames, MaxBitmapHeight);
 
             for (int row = 0; row < rowCount; row++)
             {
-                double[] frame = HistoryData.GetFrame(row)?.Powers ?? [];
+                var frame = HistoryData.GetFrame(row);
+                if (frame == null) continue;
 
-                for (int x = 0; x < BitmapWidth; x++)
+                int pointCount = frame.Powers.Length;
+
+                for (int x = 0; x < MaxBitmapWidth; x++)
                 {
-                    int sourceIndex = (int)((double)x / BitmapWidth * frame.Length);
-                    sourceIndex = Math.Min(sourceIndex, frame.Length - 1);
+                    // Max-pooling by X - if count of points more than 1024(bitmap width), take max from several points.
+                    int pointStart = (int)((double)x / MaxBitmapWidth * pointCount);
+                    int pointEnd = (int)((double)(x + 1) / MaxBitmapWidth * pointCount);
+                    pointEnd = Math.Max(pointEnd, pointStart + 1);
+                    pointEnd = Math.Min(pointEnd, pointCount);
 
-                    double power = frame[sourceIndex];
-                    Color color = TransformPowerToColor(power, MinPower, MaxPower);
+                    double maxPower = double.NegativeInfinity;
+                    for (int p = pointStart; p < pointEnd; p++)
+                    {
+                        if (frame.Powers[p] > maxPower)
+                            maxPower = frame.Powers[p];
+                    }
+
+                    Color color = TransformPowerToColor(maxPower, MinPower, MaxPower);
 
                     int offset = x * 4;
                     rowPixels[offset + 0] = color.B;
@@ -75,19 +95,14 @@ namespace SpectrumVisualizer.Controls
                     rowPixels[offset + 3] = 0;
                 }
 
-                _bitmap.WritePixels(
-                    new Int32Rect(0, row, BitmapWidth, 1),
-                    rowPixels,
-                    BitmapWidth * 4,
-                    0);
+                _bitmap.WritePixels(new Int32Rect(0, row, MaxBitmapWidth, 1), rowPixels, MaxBitmapWidth * 4, 0);
             }
 
-            double plotWidth = ActualWidth - LeftMargin - RightMargin;
+            // GPU scale bitmap to real window size.
             drawingContext.DrawImage(_bitmap, new Rect(LeftMargin, 0, plotWidth, ActualHeight));
 
             var gridPen = new Pen(Brushes.Black, 1);
             double[] freqLevels = { 90, 95, 100, 105, 110 };
-
             foreach (var freq in freqLevels)
             {
                 double x = LeftMargin + FrequencyToX(freq, plotWidth);
